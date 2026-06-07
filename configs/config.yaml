@@ -1,0 +1,6 @@
+ieee_distribution_feeder: 15
+
+admm:
+  rho: 1.0
+  max_iterations: 100
+  tolerance: 0.0001
