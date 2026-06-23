@@ -4,15 +4,18 @@ from .ADMM import ADMM
 class SimpleADMM(ADMM):
     # local primal update
     def update_primal(self):
-        for agent in self.agents:
-            i = agent.agent_id
+        for i, agent in enumerate(self.agents):
+            if self.enforce_grid_constraints:
+                G_i = self.grid_manager.compute_G_i(i)
+            else:
+                G_i = 0
+
             self.P_mat[i, :] = agent.solve_local(
                 P_i=self.P_mat[i, :],
                 pi_row=self.pi_mat[i, :],
                 lambda_row=self.lambda_mat[i, :],
                 rho=self.rho,
-                tau=self.tau[i],
-                phi=self.phi[i]
+                G_i=G_i
             )
 
     # consensus update
@@ -31,18 +34,3 @@ class SimpleADMM(ADMM):
     # admm dual update
     def update_dual_lambda(self):
         self.lambda_mat += self.rho * (self.pi_mat - self.P_mat)
-
-    # local agent dual update - tau
-    def update_dual_tau(self):
-        step = 0.1
-        for i, agent in enumerate(self.agents):
-            p_i = np.sum(self.P_mat[i, :])
-            self.tau[i] = max(0.0, self.tau[i] + step * (p_i - agent.p_max))
-
-    # local agent dual update - phi
-    def update_dual_phi(self):
-        step = 0.1
-
-        for i, agent in enumerate(self.agents):
-            p_i = np.sum(self.P_mat[i, :])
-            self.phi[i] = max(0.0, self.phi[i] + step * (agent.p_min - p_i))
