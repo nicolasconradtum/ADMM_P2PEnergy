@@ -3,48 +3,55 @@ import numpy as np
 
 class Producer(Agent):
     """
-    Producer class representing a market producer in the
-    peer-to-peer energy trading framework.
+    Energy Producer
 
     Attributes
     ----------
-    agent_id : int
-        Unique identifier of the agent.
-
-    p_min : float
-        Minimum active power limit in kW (must be ≥ 0)
-
-    p_max : float
-        Maximum active power limit in kW (must be ≥ 0)
-
-    dual_step_size : float
-        Step size used for updating agent's local dual variables during optimization.
-
-    power_factor : float
-        Agent power factor used to compute reactive power injections or
-        withdrawals from active power values.
-
-    cost_a : float
-        Coefficient of quadratic term in producer cost function
-
-    cost_b : float
-        Coefficient of linear term in producer cost function
+        agent_id : int
+            Agent's unique identifier
+        bus : int
+            The index of the bus in the grid to which the agent is connected
+        min_power_production: float
+            Minimum power which the agent can produce
+        max_power_production: float
+            Maximum power which the agent can produce
+        cost_a: float
+            Coefficient of quadratic term in consumer cost function
+        cost_b: float
+            Coefficient of linear term in consumer cost function
     """
-    def __init__(self, cost_a: float, cost_b: float, **kwargs):
-        p_min = kwargs.get("p_min")
-        p_max = kwargs.get("p_max")
+    
+    def __init__(self, agent_id: int, bus_id: int, min_power_production: float, max_power_production: float, cost_a: float, cost_b: float):
+        super().__init__(agent_id, bus_id, min_power_production, max_power_production)
 
-        # ensure p bounds ≥ 0
-        if p_min < 0 or p_max < 0:
-            raise ValueError(
-                f"Producer power limits must be ≥ 0. Got p_min={p_min}, p_max={p_max}"
-            )
-        
-        super().__init__(**kwargs)
         self.a = cost_a
         self.b = cost_b
 
-    def solve_local(self, P_i: np.ndarray, pi_row: np.ndarray, lambda_row: np.ndarray, rho: float, G_i: float):
+    def solve_local(self, P_i: np.ndarray, pi_row: np.ndarray, lambda_row: np.ndarray, rho: float, tau: float, phi: float):
+        """
+        Solve the local optimization problem for a producer agent in an ADMM-based energy trading setup.
+
+        Parameters
+        ----------
+        P_i : ndarray
+            Current power vector for agent i (including self entry).
+        pi_row : ndarray
+            Consensus variables π_i, pi_row[j] = π_{i, j}
+        lambda_row : ndarray
+            Dual variables λ_i for ADMM coupling terms. lambda_row[j] = λ_{i,j}
+        rho : float
+            ADMM penalty parameter.
+        tau : float
+            Dual variable for upper power constraint
+        phi : float
+            Dual variable for lower power constraint
+
+        Returns
+        -------
+        P_opt : numpy.ndarray
+            Optimized power vector for agent i with self-trade enforced to zero.
+        """
+
         i = self.agent_id
         P_i_next = np.zeros(len(P_i))
 
@@ -53,7 +60,7 @@ class Producer(Agent):
             if j == i:
                 continue
 
-            P_i_next[j] = max(0, (lambda_row[j] - self.b - self.tau_p + self.phi_p + rho * pi_row[j] - G_i) / (2*self.a + rho))
+            P_i_next[j] = max(0, (lambda_row[j] -self.b - tau + phi + rho * pi_row[j]) / (2*self.a + rho))
 
         return P_i_next
 

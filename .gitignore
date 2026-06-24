@@ -1,8 +1,2 @@
 #Ignore MacOS System Files
 .DS_Store
-
-venv/
-
-*__pycache__*
-
-
