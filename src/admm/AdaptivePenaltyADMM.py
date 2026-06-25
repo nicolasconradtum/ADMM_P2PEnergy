@@ -3,19 +3,19 @@ from .SimpleADMM import SimpleADMM
 
 class AdaptivePenaltyADMM(SimpleADMM):
     # main loop with adaptive penalty parameter (rho)
-    def solve(self, inc: float, dec: float, mu: float):
+    def solve(self, inc: float, dec: float, delta: float):
         """
         Solves the P2P trading problem based upon the given agents
 
         Parameters
         ----------
         inc: float
-            penalty parameter is multiplied by parameter 'inc' if primal residual > mu * dual residual
+            penalty parameter is multiplied by parameter 'inc' if primal residual > delta * dual residual
 
         dec: float
-            penalty parameter is divided by parameter 'dec' if dual residual > mu * primal residual
+            penalty parameter is divided by parameter 'dec' if dual residual > delta * primal residual
 
-        mu: float
+        delta: float
             decides sensitivity of penalty parameter (see 'inc' / 'dec' parameter definitions)
         """
         
@@ -45,9 +45,9 @@ class AdaptivePenaltyADMM(SimpleADMM):
                 break
             
             # adaptive penalty parameter step
-            if primal_res > (mu * dual_res):
+            if primal_res > (delta * dual_res):
                 self.rho = self.rho * inc
-            elif dual_res > (mu * primal_res):
+            elif dual_res > (delta * primal_res):
                 self.rho = self.rho / dec
             # otherwise, keep the same
 

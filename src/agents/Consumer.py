@@ -3,55 +3,54 @@ import numpy as np
 
 class Consumer(Agent):
     """
-    Energy Consumer
+    Consumer class representing a market consumer in the
+    peer-to-peer energy trading framework.
 
     Attributes
     ----------
-        agent_id : int
-            Agent's unique identifier
-        bus_id : int
-            The index of the bus in the grid to which the agent is connected
-        min_power_consumption: float
-            Minimum power which the agent can consume
-        max_power_consumption: float
-            Maximum power which the agent can consume
-        utility_a: float
-            Coefficient of quadratic term in consumer utility function
-        utility_b: float
-            Coefficient of linear term in consumer utility function
+    agent_id : int
+        Unique identifier of the agent.
+
+    p_min : float
+        Minimum active power limit in kW (must be ≤ 0)
+
+    p_max : float
+        Maximum active power limit in kW (must be ≤ 0)
+
+    dual_step_size : float
+        Step size used for updating agent's local dual variables during optimization.
+
+    power_factor : float
+        Agent power factor used to compute reactive power injections or
+        withdrawals from active power values.
+
+    utility_a : float
+        Coefficient of quadratic term in consumer utility function
+        
+    utility_b : float
+        Coefficient of linear term in consumer utility function
     """
+    def __init__(self, utility_a: float, utility_b: float, **kwargs):
+        p_min = kwargs.get("p_min")
+        p_max = kwargs.get("p_max")
 
-    def __init__(self, agent_id: int, bus_id: int, min_power_consumption: float, max_power_consumption: float, utility_a: float, utility_b: float):
-        super().__init__(agent_id, bus_id, -max_power_consumption, -min_power_consumption)
-
+        # ensure p bounds ≤ 0
+        if p_min > 0 or p_max > 0:
+            raise ValueError(
+                f"Consumer power limits must be ≤ 0. Got p_min={p_min}, p_max={p_max}"
+            )
+        
+        super().__init__(**kwargs)
         self.a = utility_a
         self.b = utility_b
 
-    def solve_local(self, P_i: np.ndarray, pi_row: np.ndarray, lambda_row: np.ndarray, rho: float, tau: float, phi: float):
-        """
-        Solve the local optimization problem for a consumer agent in an ADMM-based energy trading setup.
+    def get_a(self):
+        return self.a
 
-        Parameters
-        ----------
-        P_i : ndarray
-            Current power vector for agent i (including self entry).
-        pi_row : ndarray
-            Consensus variables π_i, pi_row[j] = π_{i, j}
-        lambda_row : ndarray
-            Dual variables λ_i for ADMM coupling terms. lambda_row[j] = λ_{i,j}
-        rho : float
-            ADMM penalty parameter.
-        tau : float
-            Dual variable for upper power constraint
-        phi : float
-            Dual variable for lower power constraint
+    def get_b(self):
+        return self.b
 
-        Returns
-        -------
-        P_opt : ndarray
-            Optimized power vector for agent i with self-trade enforced to zero.
-        """
-
+    def solve_local(self, P_i: np.ndarray, pi_row: np.ndarray, lambda_row: np.ndarray, rho: float, G_i: float):
         i = self.agent_id
         P_i_next = np.zeros(len(P_i))
 
@@ -60,6 +59,6 @@ class Consumer(Agent):
             if j == i:
                 continue
 
-            P_i_next[j] = min(0, (-self.b + lambda_row[j] + rho * pi_row[j] - tau + phi) / (2*self.a + rho))
+            P_i_next[j] = min(0, (lambda_row[j] - self.b - self.tau_p + self.phi_p + rho * pi_row[j] - G_i) / (2*self.a + rho))
 
         return P_i_next
